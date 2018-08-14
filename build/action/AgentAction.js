@@ -1,10 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const WebSocket = require("ws");
-const usage = require("pidusage");
 const v8Profiler = require("v8-profiler");
 const v8Analytics = require("v8-analytics");
 const PacketModel_1 = require("../model/packet/PacketModel");
+const Utility_1 = require("../common/Utility");
 const EXEC_HEARTBEAT_TIME = 60 * 1000;
 const EXEC_CPU_PROFILER_TIME = 30 * 1000;
 const FUNCTIONS_ANALYSIS = {
@@ -24,7 +24,7 @@ var AgentAction;
         if (isConnClose(conn))
             return;
         // 获取服务器状态
-        usage(process.pid, (err, stat) => {
+        Utility_1.ShellTools.ps([process.pid], (err, stat) => {
             if (isConnClose(conn))
                 return;
             if (err) {
@@ -32,20 +32,14 @@ var AgentAction;
             }
             else {
                 // {
-                //   cpu: 10.0,            // percentage (from 0 to 100*vcore)
-                //   memory: 357306368,    // bytes
-                //   ppid: 312,            // PPID
                 //   pid: 727,             // PID
+                //   ppid: 312,            // PPID
+                //   cpu: 10.0,            // percentage (from 0 to 100*vcore)
                 //   ctime: 867000,        // ms user + system time
                 //   elapsed: 6650000,     // ms since the start of the process
                 //   timestamp: 864000000  // ms since epoch
                 // }
-                // Fixme in OSX, cpu percentage is wrong. maybe it will < 0
-                console.log(stat);
-                if (stat.cpu < 0 || stat.cpu > 100) {
-                    stat.cpu = 100; // cpu 繁忙，所以
-                }
-                conn.send(PacketModel_1.PacketModel.create(101 /* REPORT_SERVER_STAT */, stat).format());
+                conn.send(PacketModel_1.PacketModel.create(101 /* REPORT_SERVER_STAT */, stat[process.pid]).format());
             }
         });
     }
