@@ -1,17 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const WebSocket = require("ws");
-const v8Profiler = require("v8-profiler");
-const v8Analytics = require("v8-analytics");
-const PacketModel_1 = require("../model/packet/PacketModel");
+const PacketModel_1 = require("../model/PacketModel");
 const Utility_1 = require("../common/Utility");
-const EXEC_HEARTBEAT_TIME = 60 * 1000;
-const EXEC_CPU_PROFILER_TIME = 30 * 1000;
-const FUNCTIONS_ANALYSIS = {
-    LONG_FUNCTIONS_LIMIT: 5,
-    TOP_EXECUTING_FUNCTIONS: 5,
-    BAILOUT_FUNCTIONS_LIMIT: 10
-};
 var AgentAction;
 (function (AgentAction) {
     /**
@@ -20,99 +11,52 @@ var AgentAction;
      * @param {WebSocket} conn
      * @return {Promise<void>}
      */
-    function sendServerStat(conn) {
-        if (isConnClose(conn))
-            return;
-        // 获取服务器状态
-        Utility_1.ShellTools.ps([process.pid], (err, stat) => {
+    function serverStat(conn) {
+        Utility_1.ProfilerTools.serverStat()
+            .then((stat) => {
             if (isConnClose(conn))
                 return;
-            if (err) {
-                console.log(err);
-            }
-            else {
-                // {
-                //   pid: 727,             // PID
-                //   ppid: 312,            // PPID
-                //   cpu: 10.0,            // percentage (from 0 to 100*vcore)
-                //   ctime: 867000,        // ms user + system time
-                //   elapsed: 6650000,     // ms since the start of the process
-                //   timestamp: 864000000  // ms since epoch
-                // }
-                conn.send(PacketModel_1.PacketModel.create(101 /* REPORT_SERVER_STAT */, stat[process.pid]).format());
-            }
+            conn.send(PacketModel_1.PacketModel.create(101 /* REPORT_SERVER_STAT */, { code: 0, data: stat }).format());
+        })
+            .catch((err) => {
+            console.log(err);
         });
     }
-    AgentAction.sendServerStat = sendServerStat;
+    AgentAction.serverStat = serverStat;
     /**
-     * 上报内存堆栈
+     * 内存快照
      *
      * @param {WebSocket} conn
      */
-    function sendHeapSnapshot(conn) {
-        if (isConnClose(conn))
-            return;
-        let snapshot = v8Profiler.takeSnapshot();
-        snapshot.export((err, res) => {
+    function heapSnapshot(conn) {
+        Utility_1.ProfilerTools.heapSnapshot()
+            .then(() => {
             if (isConnClose(conn))
                 return;
-            if (err) {
-                console.log(err);
-            }
-            else {
-                snapshot.delete();
-                conn.send(PacketModel_1.PacketModel.create(301 /* REPORT_HEAP_SNAPSHOT */, { data: res }).format());
-            }
+            conn.send(PacketModel_1.PacketModel.create(301 /* REPORT_HEAP_SNAPSHOT */, { code: 0 }).format());
+        })
+            .catch((err) => {
+            console.log(err);
         });
     }
-    AgentAction.sendHeapSnapshot = sendHeapSnapshot;
+    AgentAction.heapSnapshot = heapSnapshot;
     /**
-     * 开始 CPU Profiler
+     * CPU Profiler 分析
      *
      * @param {WebSocket} conn
      */
-    function startCpuProfiler(conn) {
-        if (isConnClose(conn))
-            return;
-        v8Profiler.startProfiling('', true);
-        setTimeout(() => stopCpuProfiler(conn), EXEC_CPU_PROFILER_TIME);
-    }
-    AgentAction.startCpuProfiler = startCpuProfiler;
-    /**
-     * 结束 CPU Profiler，并上报
-     *
-     * @param {WebSocket} conn
-     */
-    function stopCpuProfiler(conn) {
-        if (isConnClose(conn))
-            return;
-        let profiler = v8Profiler.stopProfiling('');
-        let res = {
-            longFunctions: v8Analytics(profiler, 500, false, true, { limit: FUNCTIONS_ANALYSIS.LONG_FUNCTIONS_LIMIT }, filterFunction),
-            topExecutingFunctions: v8Analytics(profiler, 1, false, true, { limit: FUNCTIONS_ANALYSIS.TOP_EXECUTING_FUNCTIONS }, filterFunction),
-            bailoutFunctions: v8Analytics(profiler, null, true, true, { limit: FUNCTIONS_ANALYSIS.BAILOUT_FUNCTIONS_LIMIT }, filterFunction)
-        };
-        profiler.delete();
-        conn.send(PacketModel_1.PacketModel.create(201 /* REPORT_CPU_PROFILER */, { data: res }).format());
-    }
-    /**
-     * 方法过滤
-     *
-     * @param {string} filePath
-     * @param {string} funcName
-     * @return {boolean}
-     */
-    function filterFunction(filePath, funcName) {
-        //if filePath or funcName has ignore string
-        let needIgnore = ['node_modules', 'anonymous'].some(fileName => {
-            return Boolean(~(filePath.indexOf(fileName))) || Boolean(~(funcName.indexOf(fileName)));
+    function cpuProfiler(conn) {
+        Utility_1.ProfilerTools.cpuProfiler()
+            .then((res) => {
+            if (isConnClose(conn))
+                return;
+            conn.send(PacketModel_1.PacketModel.create(201 /* REPORT_CPU_PROFILER */, { code: 0, data: res }).format());
+        })
+            .catch((err) => {
+            console.log(err);
         });
-        //the string filePath must have
-        let mustHave = ['/'].every(fileName => {
-            return Boolean(~filePath.indexOf(fileName));
-        });
-        return !needIgnore && mustHave;
     }
+    AgentAction.cpuProfiler = cpuProfiler;
     /**
      * 检查链接状态
      *

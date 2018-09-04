@@ -1,42 +1,15 @@
-import * as http from 'http';
-import * as util from 'util';
-import * as os from "os";
-import {spawn} from "child_process";
-
-export interface SettingSchema {
-    host: string;
-    port: number;
-    password: string;
-    redis_host: string;
-    redis_port: number;
-}
+import * as LibOs from 'os';
+import * as LibFs from 'mz/fs';
+import * as v8Profiler from 'v8-profiler';
+import * as v8Analytics from 'v8-analytics';
+import {spawn} from 'child_process';
+import {PacketModel} from '../model/PacketModel';
+import {API_TYPE} from '../action/AgentAction';
 
 /**
  * 通用工具库
  */
 export namespace CommonTools {
-    /**
-     * 获取 IP
-     *
-     * @param {module:http.ClientRequest} req
-     */
-    export function getIP(req: http.ClientRequest) {
-        let ipAddress;
-        if (req.connection && req.connection.remoteAddress) {
-            ipAddress = req.connection.remoteAddress;
-        }
-
-        if (!ipAddress && req.socket && req.socket.remoteAddress) {
-            ipAddress = req.socket.remoteAddress;
-        }
-        return ipAddress;
-    }
-
-    /**
-     * util.format()
-     */
-    export const format = util.format;
-
     /**
      * 将 callback 的方法转成 promise 方法
      *
@@ -52,119 +25,6 @@ export namespace CommonTools {
                 }]);
             });
         };
-    }
-}
-
-/**
- * 数学函数工具库
- */
-export namespace MathTools {
-    /**
-     * 获取随机数，范围 min <= x <= max
-     *
-     * @param {number} min
-     * @param {number} max
-     * @return {number}
-     */
-    export function getRandomFromRange(min: number, max: number): number {
-        // min is bigger than max, exchange value
-        if (min >= max) {
-            min = min ^ max;
-            max = min ^ max;
-            min = min ^ max;
-        }
-
-        return Math.round(Math.random() * (max - min) + min);
-    }
-}
-
-export namespace JsonTools {
-    /**
-     * 字符串转 json
-     *
-     * @param {string} str
-     * @return {Object}
-     */
-    export function stringToJson(str: string): Object {
-        return JSON.parse(str);
-    }
-
-    /**
-     *json 转字符串
-     *
-     * @param {Object} obj
-     * @return {string}
-     */
-    export function jsonToString(obj: Object): string {
-        return JSON.stringify(obj);
-    }
-
-    /**
-     * map 转换为 json
-     *
-     * @param {Map<any, any>} map
-     * @return {string}
-     */
-    export function mapToJson(map: Map<any, any>): string {
-        return JSON.stringify(JsonTools.mapToObj(map));
-    }
-
-    /**
-     * json 转换为 map
-     *
-     * @param {string} str
-     * @return {Map<any, any>}
-     */
-    export function jsonToMap(str: string): Map<any, any> {
-        return JsonTools.objToMap(JSON.parse(str));
-    }
-
-    /**
-     * map 转化为 obj
-     *
-     * @param {Map<any, any>} map
-     * @return {Object}
-     */
-    export function mapToObj(map: Map<any, any>): Object {
-        let obj = Object.create(null);
-        for (let [k, v] of map) {
-            obj[k] = v;
-        }
-        return obj;
-    }
-
-    /**
-     * obj 转换为 map
-     *
-     * @param {Object} obj
-     * @return {Map<any, any>}
-     */
-    export function objToMap(obj: Object): Map<any, any> {
-        let strMap = new Map();
-        for (let k of Object.keys(obj)) {
-            strMap.set(k, obj[k]);
-        }
-        return strMap;
-    }
-}
-
-/**
- * 分库分表工具库
- */
-export namespace SharingTools {
-
-    /**
-     * 通过数量和分片 id 计算分片，如果没有分片 id，则默认为 0 号分片
-     *
-     * @param {number} count
-     * @param {number} shardKey
-     * @return {number}
-     */
-    export function getShardId(count: number, shardKey: number = null) {
-        if (shardKey == null || shardKey > 0 || count <= 1) {
-            return 0;
-        }
-        return shardKey % count;
     }
 }
 
@@ -234,7 +94,7 @@ export namespace ShellTools {
 
             let now = new Date().getTime();
             let statistics = {};
-            let output = stdout.split(os.EOL);
+            let output = stdout.split(LibOs.EOL);
             for (let i = 1; i < output.length; i++) {
                 let line = output[i].trim().split(/\s+/);
                 if (!line || line.length !== 5) {
@@ -259,5 +119,106 @@ export namespace ShellTools {
 
             cb(null, statistics);
         });
+    }
+}
+
+/**
+ * 分析工具库
+ */
+export namespace ProfilerTools {
+
+
+    /**
+     * 获取服务器状态
+     *
+     * @return {Promise<any>}
+     */
+    export function serverStat(): Promise<any> {
+        return new Promise((resolve, reject) => {
+            ShellTools.ps([process.pid], (err, stat) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+
+                if (!stat.hasOwnProperty(process.pid)) {
+                    reject(`process.pid not found, pid:${process.pid}`);
+                    return;
+                }
+
+                resolve(stat[process.pid]);
+            });
+        });
+    }
+
+    /**
+     * 导出内存快照
+     *
+     * @return {Promise<any>}
+     */
+    export function heapSnapshot(): Promise<any> {
+        return new Promise((resolve, reject) => {
+            let snapshot = v8Profiler.takeSnapshot();
+            snapshot.export()
+                .pipe(LibFs.createWriteStream(`/tmp/snapshot_${new Date().getTime()}.json`))
+                .on('finish', () => {
+                    snapshot.delete;
+                    resolve();
+                })
+                .on('error', (err) => {
+                    reject(err);
+                });
+        });
+    }
+
+    /**
+     * CPU Profiler 分析
+     *
+     * @param {number} timeout , default timeout 100000
+     * @return {Promise<any>}
+     */
+    export function cpuProfiler(timeout: number = 100000): Promise<any> {
+        // 默认参数
+        const LONG_FUNCTIONS_LIMIT = 5;
+        const TOP_EXECUTING_FUNCTIONS = 5;
+        const BAILOUT_FUNCTIONS_LIMIT = 10;
+
+        return new Promise((resolve, reject) => {
+            // 开始分析
+            v8Profiler.startProfiling('', true);
+
+            // 设置一个时间长度，到达结束时间，关闭分析并导出
+            setTimeout(() => {
+                let profiler = v8Profiler.stopProfiling('');
+                let profilerResponse = {
+                    longFunctions: v8Analytics(profiler, 500, false, true, {limit: LONG_FUNCTIONS_LIMIT}, filterFunction),
+                    topExecutingFunctions: v8Analytics(profiler, 1, false, true, {limit: TOP_EXECUTING_FUNCTIONS}, filterFunction),
+                    bailoutFunctions: v8Analytics(profiler, null, true, true, {limit: BAILOUT_FUNCTIONS_LIMIT}, filterFunction)
+                };
+                profiler.delete();
+                resolve(profilerResponse);
+            }, timeout);
+        });
+    }
+
+    /**
+     * 方法过滤
+     *
+     * @param {string} filePath
+     * @param {string} funcName
+     * @return {boolean}
+     */
+    function filterFunction(filePath: string, funcName: string) {
+        //if filePath or funcName has ignore string
+        let needIgnore = ['node_modules', 'anonymous'].some(fileName => {
+            return Boolean(~(filePath.indexOf(fileName))) || Boolean(~(funcName.indexOf(fileName)));
+        });
+
+        //the string filePath must have
+        let mustHave = ['/'].every(fileName => {
+            return Boolean(~filePath.indexOf(fileName));
+        });
+
+        return !needIgnore && mustHave;
     }
 }

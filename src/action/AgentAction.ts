@@ -1,17 +1,16 @@
 import * as WebSocket from 'ws';
-import * as v8Profiler from 'v8-profiler';
-import * as v8Analytics from 'v8-analytics';
-import {PacketModel} from '../model/packet/PacketModel';
-import {API_TYPE} from '../const/CommandConst';
-import {ShellTools} from '../common/Utility';
+import {PacketModel} from '../model/PacketModel';
+import {ProfilerTools} from '../common/Utility';
 
-const EXEC_HEARTBEAT_TIME = 60 * 1000;
-const EXEC_CPU_PROFILER_TIME = 30 * 1000;
-const FUNCTIONS_ANALYSIS = {
-    LONG_FUNCTIONS_LIMIT: 5,
-    TOP_EXECUTING_FUNCTIONS: 5,
-    BAILOUT_FUNCTIONS_LIMIT: 10
-};
+// 消息类型
+export const enum API_TYPE {
+    EXEC_SERVER_STAT = 100,  // 通知 Agent 上报服务器状态
+    REPORT_SERVER_STAT = 101,  // 收集 Agent 上报的服务器状态
+    EXEC_CPU_PROFILER = 200,  // 通知 Agent 上报 CPU_PROFILER  数据
+    REPORT_CPU_PROFILER = 201,  // 收集 Agent 上报的 CPU_PROFILER  数据
+    EXEC_HEAP_SNAPSHOT = 300,  // 通过 Agent 上报 HEAP_SNAPSHOT 数据
+    REPORT_HEAP_SNAPSHOT = 301,  // 收集 Agent 上报的 HEAP_SNAPSHOT 数据
+}
 
 export namespace AgentAction {
     /**
@@ -20,100 +19,47 @@ export namespace AgentAction {
      * @param {WebSocket} conn
      * @return {Promise<void>}
      */
-    export function sendServerStat(conn: WebSocket) {
-        if (isConnClose(conn)) return;
-
-        // 获取服务器状态
-        ShellTools.ps([process.pid], (err, stat) => {
-            if (isConnClose(conn)) return;
-
-            if (err) {
+    export function serverStat(conn: WebSocket) {
+        ProfilerTools.serverStat()
+            .then((stat) => {
+                if (isConnClose(conn)) return;
+                conn.send(PacketModel.create(API_TYPE.REPORT_SERVER_STAT, {code: 0, data: stat}).format());
+            })
+            .catch((err) => {
                 console.log(err);
-            } else {
-                // {
-                //   pid: 727,             // PID
-                //   ppid: 312,            // PPID
-                //   cpu: 10.0,            // percentage (from 0 to 100*vcore)
-                //   ctime: 867000,        // ms user + system time
-                //   elapsed: 6650000,     // ms since the start of the process
-                //   timestamp: 864000000  // ms since epoch
-                // }
-                conn.send(PacketModel.create(API_TYPE.REPORT_SERVER_STAT, stat[process.pid]).format());
-            }
-        });
-
+            });
     }
 
     /**
-     * 上报内存堆栈
+     * 内存快照
      *
      * @param {WebSocket} conn
      */
-    export function sendHeapSnapshot(conn: WebSocket) {
-        if (isConnClose(conn)) return;
-
-        let snapshot = v8Profiler.takeSnapshot();
-        snapshot.export((err, res) => {
-            if (isConnClose(conn)) return;
-
-            if (err) {
+    export function heapSnapshot(conn: WebSocket) {
+        ProfilerTools.heapSnapshot()
+            .then(() => {
+                if (isConnClose(conn)) return;
+                conn.send(PacketModel.create(API_TYPE.REPORT_HEAP_SNAPSHOT, {code: 0}).format());
+            })
+            .catch((err) => {
                 console.log(err);
-            } else {
-                snapshot.delete();
-                conn.send(PacketModel.create(API_TYPE.REPORT_HEAP_SNAPSHOT, {data: res}).format());
-            }
-        });
+            });
     }
 
     /**
-     * 开始 CPU Profiler
+     * CPU Profiler 分析
      *
      * @param {WebSocket} conn
      */
-    export function startCpuProfiler(conn: WebSocket) {
-        if (isConnClose(conn)) return;
-
-        v8Profiler.startProfiling('', true);
-        setTimeout(() => stopCpuProfiler(conn), EXEC_CPU_PROFILER_TIME);
-    }
-
-    /**
-     * 结束 CPU Profiler，并上报
-     *
-     * @param {WebSocket} conn
-     */
-    function stopCpuProfiler(conn: WebSocket) {
-        if (isConnClose(conn)) return;
-
-        let profiler = v8Profiler.stopProfiling('');
-        let res = {
-            longFunctions: v8Analytics(profiler, 500, false, true, {limit: FUNCTIONS_ANALYSIS.LONG_FUNCTIONS_LIMIT}, filterFunction),
-            topExecutingFunctions: v8Analytics(profiler, 1, false, true, {limit: FUNCTIONS_ANALYSIS.TOP_EXECUTING_FUNCTIONS}, filterFunction),
-            bailoutFunctions: v8Analytics(profiler, null, true, true, {limit: FUNCTIONS_ANALYSIS.BAILOUT_FUNCTIONS_LIMIT}, filterFunction)
-        };
-        profiler.delete();
-        conn.send(PacketModel.create(API_TYPE.REPORT_CPU_PROFILER, {data: res}).format());
-    }
-
-    /**
-     * 方法过滤
-     *
-     * @param {string} filePath
-     * @param {string} funcName
-     * @return {boolean}
-     */
-    function filterFunction(filePath: string, funcName: string) {
-        //if filePath or funcName has ignore string
-        let needIgnore = ['node_modules', 'anonymous'].some(fileName => {
-            return Boolean(~(filePath.indexOf(fileName))) || Boolean(~(funcName.indexOf(fileName)));
-        });
-
-        //the string filePath must have
-        let mustHave = ['/'].every(fileName => {
-            return Boolean(~filePath.indexOf(fileName));
-        });
-
-        return !needIgnore && mustHave;
+    export function cpuProfiler(conn: WebSocket) {
+        ProfilerTools.cpuProfiler()
+            .then((res) => {
+                if (isConnClose(conn)) return;
+                conn.send(PacketModel.create(API_TYPE.REPORT_CPU_PROFILER, {code: 0, data: res}).format());
+            })
+            .catch((err) => {
+                console.log(err);
+            });
     }
 
     /**
