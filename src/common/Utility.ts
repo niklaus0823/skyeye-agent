@@ -1,10 +1,7 @@
 import * as LibOs from 'os';
-import * as LibFs from 'mz/fs';
 import * as v8Profiler from 'v8-profiler';
 import * as v8Analytics from 'v8-analytics';
 import {spawn} from 'child_process';
-import {PacketModel} from '../model/PacketModel';
-import {API_TYPE} from '../action/AgentAction';
 
 /**
  * 通用工具库
@@ -159,15 +156,14 @@ export namespace ProfilerTools {
     export function heapSnapshot(): Promise<any> {
         return new Promise((resolve, reject) => {
             let snapshot = v8Profiler.takeSnapshot();
-            snapshot.export()
-                .pipe(LibFs.createWriteStream(`/tmp/snapshot_${new Date().getTime()}.json`))
-                .on('finish', () => {
-                    snapshot.delete;
-                    resolve();
-                })
-                .on('error', (err) => {
+            snapshot.export((err, res) => {
+                snapshot.delete(); // 必须 delete，否则会出现内存溢出
+                if (err) {
                     reject(err);
-                });
+                    return;
+                }
+                resolve(res);
+            });
         });
     }
 

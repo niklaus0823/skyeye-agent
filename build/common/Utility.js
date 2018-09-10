@@ -1,7 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const LibOs = require("os");
-const LibFs = require("mz/fs");
 const v8Profiler = require("v8-profiler");
 const v8Analytics = require("v8-analytics");
 const child_process_1 = require("child_process");
@@ -148,14 +147,13 @@ var ProfilerTools;
     function heapSnapshot() {
         return new Promise((resolve, reject) => {
             let snapshot = v8Profiler.takeSnapshot();
-            snapshot.export()
-                .pipe(LibFs.createWriteStream(`/tmp/snapshot_${new Date().getTime()}.json`))
-                .on('finish', () => {
-                snapshot.delete;
-                resolve();
-            })
-                .on('error', (err) => {
-                reject(err);
+            snapshot.export((err, res) => {
+                snapshot.delete(); // 必须 delete，否则会出现内存溢出
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                resolve(res);
             });
         });
     }

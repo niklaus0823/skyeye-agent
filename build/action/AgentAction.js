@@ -30,10 +30,10 @@ var AgentAction;
      */
     function heapSnapshot(conn) {
         Utility_1.ProfilerTools.heapSnapshot()
-            .then(() => {
+            .then((stat) => {
             if (isConnClose(conn))
                 return;
-            conn.send(PacketModel_1.PacketModel.create(301 /* REPORT_HEAP_SNAPSHOT */, { code: 0 }).format());
+            conn.send(PacketModel_1.PacketModel.create(301 /* REPORT_HEAP_SNAPSHOT */, { code: 0, data: stat }).format());
         })
             .catch((err) => {
             console.log(err);

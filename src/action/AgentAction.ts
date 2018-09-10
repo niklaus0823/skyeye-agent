@@ -37,9 +37,9 @@ export namespace AgentAction {
      */
     export function heapSnapshot(conn: WebSocket) {
         ProfilerTools.heapSnapshot()
-            .then(() => {
+            .then((stat) => {
                 if (isConnClose(conn)) return;
-                conn.send(PacketModel.create(API_TYPE.REPORT_HEAP_SNAPSHOT, {code: 0}).format());
+                conn.send(PacketModel.create(API_TYPE.REPORT_HEAP_SNAPSHOT, {code: 0, data: stat}).format());
             })
             .catch((err) => {
                 console.log(err);
