@@ -16,7 +16,7 @@ var AgentAction;
             .then((stat) => {
             if (isConnClose(conn))
                 return;
-            conn.send(PacketModel_1.PacketModel.create(101 /* REPORT_SERVER_STAT */, { code: 0, data: stat }).format());
+            conn.send(PacketModel_1.PacketModel.create(101 /* REPORT_SERVER_STAT */, stat).format());
         })
             .catch((err) => {
             console.log(err);
@@ -30,10 +30,10 @@ var AgentAction;
      */
     function heapSnapshot(conn) {
         Utility_1.ProfilerTools.heapSnapshot()
-            .then((stat) => {
+            .then((snapshot) => {
             if (isConnClose(conn))
                 return;
-            conn.send(PacketModel_1.PacketModel.create(301 /* REPORT_HEAP_SNAPSHOT */, { code: 0, data: stat }).format());
+            conn.send(PacketModel_1.PacketModel.create(301 /* REPORT_HEAP_SNAPSHOT */, snapshot).format());
         })
             .catch((err) => {
             console.log(err);
@@ -50,7 +50,7 @@ var AgentAction;
             .then((res) => {
             if (isConnClose(conn))
                 return;
-            conn.send(PacketModel_1.PacketModel.create(201 /* REPORT_CPU_PROFILER */, { code: 0, data: res }).format());
+            conn.send(PacketModel_1.PacketModel.create(201 /* REPORT_CPU_PROFILER */, res).format());
         })
             .catch((err) => {
             console.log(err);

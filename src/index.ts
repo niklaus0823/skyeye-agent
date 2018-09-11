@@ -12,7 +12,7 @@ interface AgentOptions {
     host: string,
     port: number,
     secret: string,
-    name: string,
+    name: string | number,
     checkInterval: number,
     withHeartbeat: boolean,
 }
@@ -40,12 +40,12 @@ class Agent {
      * @param {number} checkInterval 检查间隔：10 秒
      * @param {number} withHeartbeat 是否携带心跳包
      */
-    public start(host: string, port: number, secret: string, name: string = 'agent', checkInterval: number = 10000, withHeartbeat: boolean = false) {
+    public start(host: string, port: number, secret: string, name: string = null, checkInterval: number = 10000, withHeartbeat: boolean = false) {
         this._options = {
             host: host,
             port: port,
             secret: secret,
-            name: name + ':' + process.pid,
+            name: (!name) ? name : process.pid,
             checkInterval: checkInterval,
             withHeartbeat: withHeartbeat,
         };
@@ -65,7 +65,7 @@ class Agent {
             // 连接中心节点
             this._conn = new WebSocket(`ws://${this._options.host}:${this._options.port}`, {
                 headers: {
-                    name: this._options.name,
+                    name: this._options.name as string,
                     token: this._options.secret
                 }
             });

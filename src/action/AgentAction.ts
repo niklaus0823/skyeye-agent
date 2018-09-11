@@ -23,7 +23,7 @@ export namespace AgentAction {
         ProfilerTools.serverStat()
             .then((stat) => {
                 if (isConnClose(conn)) return;
-                conn.send(PacketModel.create(API_TYPE.REPORT_SERVER_STAT, {code: 0, data: stat}).format());
+                conn.send(PacketModel.create(API_TYPE.REPORT_SERVER_STAT, stat).format());
             })
             .catch((err) => {
                 console.log(err);
@@ -37,9 +37,9 @@ export namespace AgentAction {
      */
     export function heapSnapshot(conn: WebSocket) {
         ProfilerTools.heapSnapshot()
-            .then((stat) => {
+            .then((snapshot) => {
                 if (isConnClose(conn)) return;
-                conn.send(PacketModel.create(API_TYPE.REPORT_HEAP_SNAPSHOT, {code: 0, data: stat}).format());
+                conn.send(PacketModel.create(API_TYPE.REPORT_HEAP_SNAPSHOT, snapshot).format());
             })
             .catch((err) => {
                 console.log(err);
@@ -55,7 +55,7 @@ export namespace AgentAction {
         ProfilerTools.cpuProfiler()
             .then((res) => {
                 if (isConnClose(conn)) return;
-                conn.send(PacketModel.create(API_TYPE.REPORT_CPU_PROFILER, {code: 0, data: res}).format());
+                conn.send(PacketModel.create(API_TYPE.REPORT_CPU_PROFILER, res).format());
             })
             .catch((err) => {
                 console.log(err);

@@ -23,12 +23,12 @@ class Agent {
      * @param {number} checkInterval 检查间隔：10 秒
      * @param {number} withHeartbeat 是否携带心跳包
      */
-    start(host, port, secret, name = 'agent', checkInterval = 10000, withHeartbeat = false) {
+    start(host, port, secret, name = null, checkInterval = 10000, withHeartbeat = false) {
         this._options = {
             host: host,
             port: port,
             secret: secret,
-            name: name + ':' + process.pid,
+            name: (!name) ? name : process.pid,
             checkInterval: checkInterval,
             withHeartbeat: withHeartbeat,
         };
