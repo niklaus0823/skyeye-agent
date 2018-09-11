@@ -28,7 +28,7 @@ class Agent {
             host: host,
             port: port,
             secret: secret,
-            name: (!name) ? name : process.pid,
+            name: (!name) ? process.pid : name,
             checkInterval: checkInterval,
             withHeartbeat: withHeartbeat,
         };
@@ -61,6 +61,7 @@ class Agent {
                 }
             });
             this._conn.on('message', (message) => {
+                console.log(message);
                 if (typeof message == 'number') {
                     console.log(message);
                     return;

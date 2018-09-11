@@ -45,7 +45,7 @@ class Agent {
             host: host,
             port: port,
             secret: secret,
-            name: (!name) ? name : process.pid,
+            name: (!name) ? process.pid : name,
             checkInterval: checkInterval,
             withHeartbeat: withHeartbeat,
         };
