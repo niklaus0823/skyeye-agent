@@ -1,5 +1,5 @@
 let agent = require('./index');
-agent.start('127.0.0.1', 8080, '406adc86');
+agent.start('127.0.0.1', 8080, 'db3e1c6b');
 
 function consume() {
   function fabonacci(n) {
