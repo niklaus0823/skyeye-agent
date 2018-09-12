@@ -1,4 +1,12 @@
 "use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const WebSocket = require("ws");
 const PacketModel_1 = require("./model/PacketModel");
@@ -11,6 +19,7 @@ class Agent {
     constructor() {
         this._try = 0;
         this._locked = false;
+        this._profiling = false;
         this._initialized = false;
     }
     /**
@@ -60,30 +69,36 @@ class Agent {
                     debug(e);
                 }
             });
-            this._conn.on('message', (message) => {
-                console.log(message);
+            this._conn.on('message', (message) => __awaiter(this, void 0, void 0, function* () {
                 if (typeof message == 'number') {
-                    console.log(message);
+                    debug(message);
                     return;
                 }
                 try {
+                    // LOCK PROFILER
+                    if (this._profiling == true) {
+                        debug('Please wait a minute');
+                        return;
+                    }
                     let packet = PacketModel_1.PacketModel.parse(message);
                     switch (packet.type) {
                         case 100 /* EXEC_SERVER_STAT */:
-                            AgentAction_1.AgentAction.serverStat(this._conn);
+                            yield AgentAction_1.AgentAction.serverStat(this._conn);
                             break;
                         case 300 /* EXEC_HEAP_SNAPSHOT */:
-                            AgentAction_1.AgentAction.heapSnapshot(this._conn);
+                            yield AgentAction_1.AgentAction.heapSnapshot(this._conn);
                             break;
                         case 200 /* EXEC_CPU_PROFILER */:
-                            AgentAction_1.AgentAction.cpuProfiler(this._conn);
+                            this._lockProfiler();
+                            yield AgentAction_1.AgentAction.cpuProfiler(this._conn, packet);
+                            this._unlockProfiler();
                             break;
                     }
                 }
                 catch (e) {
                     debug(e);
                 }
-            });
+            }));
             this._conn.on('error', (e) => {
                 debug('[agent] connect error, msg:' + e.message);
             });
@@ -141,7 +156,7 @@ class Agent {
     _lock() {
         this._locked = true;
         this._try++;
-        this._tid = setTimeout(() => this._clear(), TRY_FAIL_TIMEOUT); // 超时清除
+        this._lockTid = setTimeout(() => this._clear(), TRY_FAIL_TIMEOUT); // 超时清除
     }
     /**
      * 解除锁定
@@ -150,7 +165,7 @@ class Agent {
      */
     _unlock() {
         this._locked = false;
-        clearTimeout(this._tid);
+        clearTimeout(this._lockTid);
     }
     /**
      * 清除 Timeout
@@ -160,6 +175,32 @@ class Agent {
     _clear() {
         this._try = 0;
         this._locked = false;
+    }
+    /**
+     * 设置锁定，禁止重连
+     *
+     * @private
+     */
+    _lockProfiler() {
+        this._profiling = true;
+        this._profileTid = setTimeout(() => this._clearProfiler(), TRY_FAIL_TIMEOUT); // 超时清除
+    }
+    /**
+     * 解除锁定
+     *
+     * @private
+     */
+    _unlockProfiler() {
+        this._profiling = false;
+        clearTimeout(this._profileTid);
+    }
+    /**
+     * 清除 Timeout
+     *
+     * @private
+     */
+    _clearProfiler() {
+        this._profiling = false;
     }
 }
 exports.default = new Agent();

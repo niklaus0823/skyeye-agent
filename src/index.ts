@@ -24,7 +24,9 @@ class Agent {
 
     private _try: number = 0;
     private _locked: boolean = false;
-    private _tid: NodeJS.Timer;
+    private _lockTid: NodeJS.Timer;
+    private _profiling: boolean = false;
+    private _profileTid: NodeJS.Timer;
 
     constructor() {
         this._initialized = false;
@@ -80,23 +82,30 @@ class Agent {
                 }
             });
 
-            this._conn.on('message', (message: string | number) => {
+            this._conn.on('message', async (message: string | number) => {
                 if (typeof message == 'number') {
-                    console.log(message);
+                    debug(message);
                     return;
                 }
-
                 try {
+                    // LOCK PROFILER
+                    if (this._profiling == true) {
+                        debug('Please wait a minute');
+                        return;
+                    }
+
                     let packet = PacketModel.parse(message);
                     switch (packet.type) {
                         case API_TYPE.EXEC_SERVER_STAT:
-                            AgentAction.serverStat(this._conn);
+                            await AgentAction.serverStat(this._conn);
                             break;
                         case API_TYPE.EXEC_HEAP_SNAPSHOT:
-                            AgentAction.heapSnapshot(this._conn);
+                            await AgentAction.heapSnapshot(this._conn);
                             break;
                         case API_TYPE.EXEC_CPU_PROFILER:
-                            AgentAction.cpuProfiler(this._conn);
+                            this._lockProfiler();
+                            await AgentAction.cpuProfiler(this._conn, packet);
+                            this._unlockProfiler();
                             break;
                     }
                 } catch (e) {
@@ -167,7 +176,7 @@ class Agent {
     private _lock() {
         this._locked = true;
         this._try++;
-        this._tid = setTimeout(() => this._clear(), TRY_FAIL_TIMEOUT); // 超时清除
+        this._lockTid = setTimeout(() => this._clear(), TRY_FAIL_TIMEOUT); // 超时清除
     }
 
     /**
@@ -177,7 +186,7 @@ class Agent {
      */
     private _unlock() {
         this._locked = false;
-        clearTimeout(this._tid);
+        clearTimeout(this._lockTid);
     }
 
     /**
@@ -188,6 +197,35 @@ class Agent {
     private _clear() {
         this._try = 0;
         this._locked = false;
+    }
+
+    /**
+     * 设置锁定，禁止重连
+     *
+     * @private
+     */
+    private _lockProfiler() {
+        this._profiling = true;
+        this._profileTid = setTimeout(() => this._clearProfiler(), TRY_FAIL_TIMEOUT); // 超时清除
+    }
+
+    /**
+     * 解除锁定
+     *
+     * @private
+     */
+    private _unlockProfiler() {
+        this._profiling = false;
+        clearTimeout(this._profileTid);
+    }
+
+    /**
+     * 清除 Timeout
+     *
+     * @private
+     */
+    private _clearProfiler() {
+        this._profiling = false;
     }
 }
 

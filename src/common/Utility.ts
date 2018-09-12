@@ -1,5 +1,5 @@
 import * as LibOs from 'os';
-import * as v8Profiler from 'v8-profiler';
+import * as v8Profiler from 'v8-profiler-node8';
 import * as v8Analytics from 'v8-analytics';
 import {spawn} from 'child_process';
 
@@ -170,15 +170,12 @@ export namespace ProfilerTools {
     /**
      * CPU Profiler 分析
      *
-     * @param {number} timeout , default timeout 100000
+     * @param {number} execTime , default 60000
+     * @param {number} timeout , default 500
      * @return {Promise<any>}
      */
-    export function cpuProfiler(timeout: number = 100000): Promise<any> {
+    export function cpuProfiler(timeout: number = 500, execTime: number = 60000): Promise<any> {
         // 默认参数
-        const LONG_FUNCTIONS_LIMIT = 5;
-        const TOP_EXECUTING_FUNCTIONS = 5;
-        const BAILOUT_FUNCTIONS_LIMIT = 10;
-
         return new Promise((resolve, reject) => {
             // 开始分析
             v8Profiler.startProfiling('', true);
@@ -187,13 +184,12 @@ export namespace ProfilerTools {
             setTimeout(() => {
                 let profiler = v8Profiler.stopProfiling('');
                 let profilerResponse = {
-                    longFunctions: v8Analytics(profiler, 500, false, true, {limit: LONG_FUNCTIONS_LIMIT}, filterFunction),
-                    topExecutingFunctions: v8Analytics(profiler, 1, false, true, {limit: TOP_EXECUTING_FUNCTIONS}, filterFunction),
-                    bailoutFunctions: v8Analytics(profiler, null, true, true, {limit: BAILOUT_FUNCTIONS_LIMIT}, filterFunction)
+                    longFunctions: v8Analytics(profiler, timeout, false, true, {limit: 10}, filterFunction),
+                    topExecutingFunctions: v8Analytics(profiler, 1, false, true, {limit: 10}, filterFunction),
                 };
                 profiler.delete();
                 resolve(profilerResponse);
-            }, timeout);
+            }, execTime);
         });
     }
 

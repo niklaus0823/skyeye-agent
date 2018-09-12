@@ -1,5 +1,5 @@
 let agent = require('./index');
-agent.start('127.0.0.1', 8080, '4d72728a');
+agent.start('127.0.0.1', 8080, '406adc86');
 
 function consume() {
   function fabonacci(n) {
@@ -12,12 +12,12 @@ function consume() {
     return fabonacci(n - 1) + fabonacci(n - 2);
   }
 
-  const n = 10;
+  const n = 40;
   const start = new Date();
   const result = fabonacci(n);
   const end = new Date();
 
-  // console.log('fabonacci(%d) = %d, time used: %d ms.', n, result, end.getTime() - start.getTime());
+  console.log('fabonacci(%d) = %d, time used: %d ms.', n, result, end.getTime() - start.getTime());
 }
 
 // consumption

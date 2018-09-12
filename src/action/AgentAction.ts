@@ -20,10 +20,10 @@ export namespace AgentAction {
      * @return {Promise<void>}
      */
     export function serverStat(conn: WebSocket) {
-        ProfilerTools.serverStat()
+        return ProfilerTools.serverStat()
             .then((stat) => {
                 if (isConnClose(conn)) return;
-                conn.send(PacketModel.create(API_TYPE.REPORT_SERVER_STAT, stat).format());
+                conn.send(PacketModel.create(API_TYPE.REPORT_SERVER_STAT, {res: stat}).format());
             })
             .catch((err) => {
                 console.log(err);
@@ -36,10 +36,10 @@ export namespace AgentAction {
      * @param {WebSocket} conn
      */
     export function heapSnapshot(conn: WebSocket) {
-        ProfilerTools.heapSnapshot()
+        return ProfilerTools.heapSnapshot()
             .then((snapshot) => {
                 if (isConnClose(conn)) return;
-                conn.send(PacketModel.create(API_TYPE.REPORT_HEAP_SNAPSHOT, snapshot).format());
+                conn.send(PacketModel.create(API_TYPE.REPORT_HEAP_SNAPSHOT, {res: snapshot}).format());
             })
             .catch((err) => {
                 console.log(err);
@@ -50,12 +50,14 @@ export namespace AgentAction {
      * CPU Profiler 分析
      *
      * @param {WebSocket} conn
+     * @param {PacketModel} packet
      */
-    export function cpuProfiler(conn: WebSocket) {
-        ProfilerTools.cpuProfiler()
+    export function cpuProfiler(conn: WebSocket, packet: PacketModel) {
+        const body = packet.body;
+        return ProfilerTools.cpuProfiler(body.timeout)
             .then((res) => {
                 if (isConnClose(conn)) return;
-                conn.send(PacketModel.create(API_TYPE.REPORT_CPU_PROFILER, res).format());
+                conn.send(PacketModel.create(API_TYPE.REPORT_CPU_PROFILER, {res: res}).format());
             })
             .catch((err) => {
                 console.log(err);

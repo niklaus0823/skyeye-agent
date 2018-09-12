@@ -12,11 +12,11 @@ var AgentAction;
      * @return {Promise<void>}
      */
     function serverStat(conn) {
-        Utility_1.ProfilerTools.serverStat()
+        return Utility_1.ProfilerTools.serverStat()
             .then((stat) => {
             if (isConnClose(conn))
                 return;
-            conn.send(PacketModel_1.PacketModel.create(101 /* REPORT_SERVER_STAT */, stat).format());
+            conn.send(PacketModel_1.PacketModel.create(101 /* REPORT_SERVER_STAT */, { res: stat }).format());
         })
             .catch((err) => {
             console.log(err);
@@ -29,11 +29,11 @@ var AgentAction;
      * @param {WebSocket} conn
      */
     function heapSnapshot(conn) {
-        Utility_1.ProfilerTools.heapSnapshot()
+        return Utility_1.ProfilerTools.heapSnapshot()
             .then((snapshot) => {
             if (isConnClose(conn))
                 return;
-            conn.send(PacketModel_1.PacketModel.create(301 /* REPORT_HEAP_SNAPSHOT */, snapshot).format());
+            conn.send(PacketModel_1.PacketModel.create(301 /* REPORT_HEAP_SNAPSHOT */, { res: snapshot }).format());
         })
             .catch((err) => {
             console.log(err);
@@ -44,13 +44,15 @@ var AgentAction;
      * CPU Profiler 分析
      *
      * @param {WebSocket} conn
+     * @param {PacketModel} packet
      */
-    function cpuProfiler(conn) {
-        Utility_1.ProfilerTools.cpuProfiler()
+    function cpuProfiler(conn, packet) {
+        const body = packet.body;
+        return Utility_1.ProfilerTools.cpuProfiler(body.timeout)
             .then((res) => {
             if (isConnClose(conn))
                 return;
-            conn.send(PacketModel_1.PacketModel.create(201 /* REPORT_CPU_PROFILER */, res).format());
+            conn.send(PacketModel_1.PacketModel.create(201 /* REPORT_CPU_PROFILER */, { res: res }).format());
         })
             .catch((err) => {
             console.log(err);

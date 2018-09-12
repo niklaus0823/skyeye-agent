@@ -1,12 +1,17 @@
 Skyeye
 =========================
-Process monitor for Node.js.
+Process monitor for Node.js, Only support for Node 8+.
 
 # Skyeye-cli
+
+Based on v8-profiler-node8@5.7.0, Solved the v8-profiler segment fault error in node 8.x
+
+Now also Supported node 10.x
 
 ## Install
 
 ```bash
+node -v // 8.11.1 , Only support for Node 8+
 npm install skyeye-cli -g
 ```
 
