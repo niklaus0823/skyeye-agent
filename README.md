@@ -64,6 +64,18 @@ curl http://127.0.0.1:8081/127.0.0.1/1533038565835/19561612
 # {"code":0,"token":"bd864703"}
 ```
 
+or
+
+```bash
+skyeye add -a 127.0.0.1
+
+#| -------------------- | ---------- 
+#| AGENT_IP             | TOKEN        
+#| -------------------- | ----------
+#| 127.0.0.1_3701       | bd864703    
+#| -------------------- | ----------
+```
+
 # Skyeye-agent
 
 ## Install
@@ -87,17 +99,6 @@ let withHeartbeat = false; // Report server status while performing health check
 agent.start(skyeyeHost, skyeyePort, agentSecret, agentName, checkInterval, withHeartbeat);
 ```
 
-or
-
-```bash
-skyeye add -a 127.0.0.1
-
-#| -------------------- | ---------- 
-#| AGENT_IP             | TOKEN        
-#| -------------------- | ----------
-#| 127.0.0.1_3701       | bd864703    
-#| -------------------- | ----------
-```
 # Display  Agent State
 
 ```bash
